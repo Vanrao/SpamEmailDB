@@ -1,6 +1,9 @@
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
-from sklearn.metrics import confusion_matrix, mean_absolute_error, mean_squared_error, precision_recall_fscore_support
+from sklearn.metrics import confusion_matrix, mean_absolute_error, mean_squared_error, precision_recall_fscore_support, roc_auc_score
 import numpy as np
 import pandas as pd
 import warnings
@@ -9,17 +12,18 @@ import SpamConstants as sc
 
 class ClassifySpam:
     """ Classify Email Spam or Not Spam from UCI Processed Dataset"""
-    columns_header_list = []
-    warnings.filterwarnings(sc.WARNING_IGNORE)
-    res_dataframe = {sc.TRUE_NEGATIVE: [], sc.FALSE_POSITIVE: [],
-                     sc.FALSE_NEGATIVE: [], sc.TRUE_POSITIVE: [],
-                     sc.FALSE_POSITIVE_RATE: [], sc.FALSE_NEGATIVE_RATE: [], sc.OVERALL_ERROR_RATE: [],
-                     sc.MEAN_ABSOLUTE_ERROR: [], sc.MEAN_SQUARED_ERROR: [],
-                     sc.PRECISION: [], sc.RECALL: [], sc.F1_SCORE: []}
+    def __init__(self):
+        self.columns_header_list = []
+        warnings.filterwarnings(sc.WARNING_IGNORE)
+        self.res_dataframe = {sc.TRUE_NEGATIVE: [], sc.FALSE_POSITIVE: [],
+                         sc.FALSE_NEGATIVE: [], sc.TRUE_POSITIVE: [],
+                         sc.FALSE_POSITIVE_RATE: [], sc.FALSE_NEGATIVE_RATE: [], sc.OVERALL_ERROR_RATE: [],
+                         sc.MEAN_ABSOLUTE_ERROR: [], sc.MEAN_SQUARED_ERROR: [],
+                         sc.PRECISION: [], sc.RECALL: [], sc.F1_SCORE: [], sc.ROC_AUC_SCORE: []}
 
-    stats_dataframe = {sc.AVG_FALSE_NEG_RATE: [], sc.AVG_FALSE_POS_RATE: [],
-                       sc.AVG_OVERALL_ERROR_RATE: [],
-                       sc.AVG_PRECISION: [], sc.AVG_RECALL: [], sc.AVG_F1_SCORE: []}
+        self.stats_dataframe = {sc.AVG_FALSE_NEG_RATE: [], sc.AVG_FALSE_POS_RATE: [],
+                           sc.AVG_OVERALL_ERROR_RATE: [],
+                           sc.AVG_PRECISION: [], sc.AVG_RECALL: [], sc.AVG_F1_SCORE: [], sc.AVG_ROC_AUC_SCORE: []}
 
     def createHeaders(self):
         """ Create headers for the UCI dataset file"""
@@ -40,13 +44,37 @@ class ClassifySpam:
     def createNaiveBayesModel(self, pd_dataframe):
         """ Multinomial Naive Bayes model creation"""
         clf = MultinomialNB()
-        train_set = np.array(pd_dataframe)
+        train_df = pd_dataframe.iloc[:,0:sc.NUM_FEATURES]
+        train_set = np.array(train_df)
         test_set = np.array(pd_dataframe[sc.CLASS_LABEL])
         return clf, train_set, test_set, pd_dataframe
 
+    def createDTModel(self, pd_dataframe):
+        clf = DecisionTreeClassifier()
+        train_df = pd_dataframe.iloc[:, 0:sc.NUM_FEATURES]
+        train_set = np.array(train_df)
+        test_set = np.array(pd_dataframe[sc.CLASS_LABEL])
+        return clf, train_set, test_set, pd_dataframe
+
+    def createSVMModel(self, pd_dataframe):
+        clf = SVC(gamma='auto')
+        train_df = pd_dataframe.iloc[:, 0:sc.NUM_FEATURES]
+        train_set = np.array(train_df)
+        test_set = np.array(pd_dataframe[sc.CLASS_LABEL])
+        return clf, train_set, test_set, pd_dataframe
+
+    def createLogReg(self, pd_dataframe):
+        clf = LogisticRegression(random_state=0, solver='lbfgs')
+        train_df = pd_dataframe.iloc[:, 0:sc.NUM_FEATURES]
+        train_set = np.array(train_df)
+        test_set = np.array(pd_dataframe[sc.CLASS_LABEL])
+        return clf, train_set, test_set, pd_dataframe
+
+
+
     def buildKFoldCV(self, clf, train_set, test_set, pd_dataframe):
         """ KFold cross validation with confusion matrix"""
-        kf = KFold(n_splits=10)
+        kf = KFold(n_splits=10, shuffle=True)
         for train_index, test_index in kf.split(pd_dataframe):
             X_train, X_test = train_set[train_index], train_set[test_index]
             Y_train, Y_test = test_set[train_index], test_set[test_index]
@@ -54,6 +82,9 @@ class ClassifySpam:
             clf.fit(X_train, Y_train)
 
             Y_Predicted = clf.predict(X_test)
+
+            roc_auc_score_result = roc_auc_score(Y_test, Y_Predicted)
+            self.res_dataframe[sc.ROC_AUC_SCORE].append(roc_auc_score_result)
 
             True_Neg, False_Pos, False_Neg, True_Pos = confusion_matrix(Y_test, Y_Predicted).ravel()
             self.res_dataframe[sc.TRUE_NEGATIVE].append(True_Neg)
@@ -105,7 +136,8 @@ class ClassifySpam:
         self.stats_dataframe[sc.AVG_RECALL]=avg_recall
         avg_f1_score = sum(self.res_dataframe[sc.F1_SCORE])/len(self.res_dataframe[sc.F1_SCORE])
         self.stats_dataframe[sc.AVG_F1_SCORE]=avg_f1_score
-
+        avg_score_roc_auc = sum(self.res_dataframe[sc.ROC_AUC_SCORE])/len(self.res_dataframe[sc.ROC_AUC_SCORE])
+        self.stats_dataframe[sc.AVG_ROC_AUC_SCORE]=avg_score_roc_auc
         print(self.stats_dataframe)
 
 
@@ -114,6 +146,21 @@ if __name__ == '__main__':
     classifySpamObj.createHeaders()
     dataset_filename = 'spambase/spambase.data'
     pd_dataframe = classifySpamObj.readInputData(dataset_filename)
-    model, train_set, test_set, dataframe = classifySpamObj.createNaiveBayesModel(pd_dataframe)
+    # model, train_set, test_set, dataframe = classifySpamObj.createNaiveBayesModel(pd_dataframe)
+    # classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
+    # classifySpamObj.evaluateModel()
+    print("----------------")
+    model, train_set, test_set, dataframe = classifySpamObj.createDTModel(pd_dataframe)
     classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
     classifySpamObj.evaluateModel()
+    # print('----------------')
+    # model, train_set, test_set, dataframe = classifySpamObj.createSVMModel(pd_dataframe)
+    # classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
+    # classifySpamObj.evaluateModel()
+    # print('----------------')
+    # model, train_set, test_set, dataframe = classifySpamObj.createLogReg(pd_dataframe)
+    # classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
+    # classifySpamObj.evaluateModel()
+    # print('----------------')
+
+
