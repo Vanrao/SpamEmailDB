@@ -12,7 +12,9 @@ import SpamConstants as sc
 
 class ClassifySpam:
     """ Classify Email Spam or Not Spam from UCI Processed Dataset"""
+
     def __init__(self):
+        """ Define headers for the dataset file. Initialize Pandas Dataframe to save the results."""
         self.columns_header_list = []
         warnings.filterwarnings(sc.WARNING_IGNORE)
         self.res_dataframe = {sc.TRUE_NEGATIVE: [], sc.FALSE_POSITIVE: [],
@@ -50,6 +52,7 @@ class ClassifySpam:
         return clf, train_set, test_set, pd_dataframe
 
     def createDTModel(self, pd_dataframe):
+        """ Decision Tree classifier model creation"""
         clf = DecisionTreeClassifier()
         train_df = pd_dataframe.iloc[:, 0:sc.NUM_FEATURES]
         train_set = np.array(train_df)
@@ -57,6 +60,7 @@ class ClassifySpam:
         return clf, train_set, test_set, pd_dataframe
 
     def createSVMModel(self, pd_dataframe):
+        """ SVM model creation"""
         clf = SVC(gamma='auto')
         train_df = pd_dataframe.iloc[:, 0:sc.NUM_FEATURES]
         train_set = np.array(train_df)
@@ -64,6 +68,7 @@ class ClassifySpam:
         return clf, train_set, test_set, pd_dataframe
 
     def createLogReg(self, pd_dataframe):
+        """ Logistic Regression model creation"""
         clf = LogisticRegression(random_state=0, solver='lbfgs')
         train_df = pd_dataframe.iloc[:, 0:sc.NUM_FEATURES]
         train_set = np.array(train_df)
@@ -73,7 +78,7 @@ class ClassifySpam:
 
 
     def buildKFoldCV(self, clf, train_set, test_set, pd_dataframe):
-        """ KFold cross validation with confusion matrix"""
+        """ KFold cross validation with Confusion Matrix"""
         kf = KFold(n_splits=10, shuffle=True)
         for train_index, test_index in kf.split(pd_dataframe):
             X_train, X_test = train_set[train_index], train_set[test_index]
@@ -117,7 +122,7 @@ class ClassifySpam:
                 false_neg_rate = False_Neg/float(False_Neg+True_Pos)
             self.res_dataframe[sc.FALSE_NEGATIVE_RATE].append(false_neg_rate)
 
-            # Overall Misclassification = (FP+FN) / (TP+TN+FP+FN)
+            # Overall Misclassification Error= (FP+FN) / (TP+TN+FP+FN)
             overall_error_rate = (False_Pos+False_Neg)/(True_Neg + False_Pos + False_Neg + True_Pos)
             self.res_dataframe[sc.OVERALL_ERROR_RATE].append(overall_error_rate)
         print(self.res_dataframe)
@@ -145,22 +150,17 @@ if __name__ == '__main__':
     classifySpamObj = ClassifySpam()
     classifySpamObj.createHeaders()
     dataset_filename = 'spambase/spambase.data'
-    pd_dataframe = classifySpamObj.readInputData(dataset_filename)
-    # model, train_set, test_set, dataframe = classifySpamObj.createNaiveBayesModel(pd_dataframe)
-    # classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
-    # classifySpamObj.evaluateModel()
-    print("----------------")
-    model, train_set, test_set, dataframe = classifySpamObj.createDTModel(pd_dataframe)
-    classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
-    classifySpamObj.evaluateModel()
-    # print('----------------')
-    # model, train_set, test_set, dataframe = classifySpamObj.createSVMModel(pd_dataframe)
-    # classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
-    # classifySpamObj.evaluateModel()
-    # print('----------------')
-    # model, train_set, test_set, dataframe = classifySpamObj.createLogReg(pd_dataframe)
-    # classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
-    # classifySpamObj.evaluateModel()
-    # print('----------------')
+    models = {'NaiveBayes':classifySpamObj.createNaiveBayesModel,
+              'Decision Tree':classifySpamObj.createDTModel,
+              'SVM':classifySpamObj.createSVMModel,
+              'Logistic Regression':classifySpamObj.createLogReg}
 
-
+    for each_model in models.keys():
+        classifySpamObj = ClassifySpam()
+        classifySpamObj.createHeaders()
+        pd_dataframe = classifySpamObj.readInputData(dataset_filename)
+        print('Model '+each_model)
+        model, train_set, test_set, dataframe = models[each_model](pd_dataframe)
+        classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
+        classifySpamObj.evaluateModel()
+        print('---------------')
