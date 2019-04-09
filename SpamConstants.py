@@ -2,6 +2,7 @@ DELIMITER = ','
 
 WORD_FREQ_COUNT = 49
 CHAR_FREQ_COUNT = 7
+NUM_FEATURES = 57
 
 WARNING_IGNORE = 'ignore'
 TRUE_NEGATIVE = 'True Negative'
@@ -22,6 +23,8 @@ AVG_OVERALL_ERROR_RATE = 'Average OverallError Rate'
 AVG_PRECISION = 'Average Precision'
 AVG_RECALL = 'Average Recall'
 AVG_F1_SCORE = 'Average F1 Score'
+ROC_AUC_SCORE = 'roc auc score'
+AVG_ROC_AUC_SCORE = 'avg roc auc score'
 
 WORD_FREQUENCY = 'Word_Freq'
 CHAR_FREQUENCY = 'Char_Freq'
