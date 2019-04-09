@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 import warnings
 import SpamConstants as sc
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 
 class ClassifySpam:
@@ -15,6 +18,8 @@ class ClassifySpam:
 
     def __init__(self):
         """ Define headers for the dataset file. Initialize Pandas Dataframe to save the results."""
+        self.stats_dataframe_pandas = None
+        self.res_dataframe_pandas = None
         self.columns_header_list = []
         warnings.filterwarnings(sc.WARNING_IGNORE)
         self.res_dataframe = {sc.TRUE_NEGATIVE: [], sc.FALSE_POSITIVE: [],
@@ -81,22 +86,28 @@ class ClassifySpam:
         """ KFold cross validation with Confusion Matrix"""
         kf = KFold(n_splits=10, shuffle=True)
         for train_index, test_index in kf.split(pd_dataframe):
+            # Split the data into train and test according to number of folds.
             X_train, X_test = train_set[train_index], train_set[test_index]
             Y_train, Y_test = test_set[train_index], test_set[test_index]
 
+            # Fit the model
             clf.fit(X_train, Y_train)
 
+            # Run the model
             Y_Predicted = clf.predict(X_test)
 
+            # Calculate ROC AUC Score for the model
             roc_auc_score_result = roc_auc_score(Y_test, Y_Predicted)
             self.res_dataframe[sc.ROC_AUC_SCORE].append(roc_auc_score_result)
 
+            # Calculate Confusion Matrix
             True_Neg, False_Pos, False_Neg, True_Pos = confusion_matrix(Y_test, Y_Predicted).ravel()
             self.res_dataframe[sc.TRUE_NEGATIVE].append(True_Neg)
             self.res_dataframe[sc.FALSE_POSITIVE].append(False_Pos)
             self.res_dataframe[sc.FALSE_NEGATIVE].append(False_Neg)
             self.res_dataframe[sc.TRUE_POSITIVE].append(True_Pos)
 
+            # Calculate Error Rates
             mean_abs_error = mean_absolute_error(Y_test, Y_Predicted)
             self.res_dataframe[sc.MEAN_ABSOLUTE_ERROR].append(mean_abs_error)
 
@@ -125,7 +136,7 @@ class ClassifySpam:
             # Overall Misclassification Error= (FP+FN) / (TP+TN+FP+FN)
             overall_error_rate = (False_Pos+False_Neg)/(True_Neg + False_Pos + False_Neg + True_Pos)
             self.res_dataframe[sc.OVERALL_ERROR_RATE].append(overall_error_rate)
-        print(self.res_dataframe)
+        self.res_dataframe_pandas = pd.DataFrame(data=self.res_dataframe)
 
     def evaluateModel(self):
         """ Average of all error rates"""
@@ -143,7 +154,8 @@ class ClassifySpam:
         self.stats_dataframe[sc.AVG_F1_SCORE]=avg_f1_score
         avg_score_roc_auc = sum(self.res_dataframe[sc.ROC_AUC_SCORE])/len(self.res_dataframe[sc.ROC_AUC_SCORE])
         self.stats_dataframe[sc.AVG_ROC_AUC_SCORE]=avg_score_roc_auc
-        print(self.stats_dataframe)
+        self.stats_dataframe_pandas = pd.DataFrame(data=self.stats_dataframe, index=[0])
+
 
 
 if __name__ == '__main__':
@@ -159,8 +171,18 @@ if __name__ == '__main__':
         classifySpamObj = ClassifySpam()
         classifySpamObj.createHeaders()
         pd_dataframe = classifySpamObj.readInputData(dataset_filename)
+        statistics ={'Statistics':[], 'Values':[]}
         print('Model '+each_model)
         model, train_set, test_set, dataframe = models[each_model](pd_dataframe)
         classifySpamObj.buildKFoldCV(model, train_set, test_set, dataframe)
         classifySpamObj.evaluateModel()
-        print('---------------')
+        print(classifySpamObj.res_dataframe_pandas)
+        print(classifySpamObj.stats_dataframe_pandas)
+        statistics['Statistics'] = list(classifySpamObj.stats_dataframe_pandas.columns.values)
+        mod_df = classifySpamObj.stats_dataframe_pandas.loc[0]
+        for i in range(0, len(list(classifySpamObj.stats_dataframe_pandas.columns.values))):
+            statistics['Values'].append(mod_df[i]*100)
+        ax = sns.barplot(x='Statistics',y='Values', data=statistics)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha="right")
+        plt.tight_layout()
+        plt.show()
